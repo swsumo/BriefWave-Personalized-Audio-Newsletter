@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BriefWave — Your Daily Audio Briefing</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3a;
+    --accent: #f0c060;
+    --accent2: #e8834a;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --success: #4ade80;
+    --red: #f87171;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blobs */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-1 { width: 500px; height: 500px; background: #f0c060; top: -150px; right: -100px; }
+  .blob-2 { width: 400px; height: 400px; background: #e8834a; bottom: -100px; left: -100px; }
+
+  /* ─── LAYOUT ─── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 56px;
+    animation: fadeDown 0.6s ease both;
+  }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-size: 20px;
+  }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+  }
+  .logo-text span { color: var(--accent); }
+  .live-badge {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 1.5s infinite; }
+
+  /* ─── SECTION LABELS ─── */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ─── CONFIG PANEL ─── */
+  .config-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  /* Webhook input — removed (URL is now server-side) */
+
+  /* Categories */
+  .categories-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .cat-card {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+  }
+  .cat-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .cat-card.active {
+    border-color: var(--accent);
+    background: rgba(240,192,96,0.08);
+  }
+  .cat-card.active .cat-check { background: var(--accent); border-color: var(--accent); }
+  .cat-check {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    display: grid; place-items: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .cat-check svg { display: none; }
+  .cat-card.active .cat-check svg { display: block; }
+  .cat-emoji { font-size: 18px; }
+  .cat-name { font-size: 14px; font-weight: 500; }
+
+  /* Length selector */
+  .length-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  .length-card {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .length-card:hover { border-color: var(--accent); }
+  .length-card.active {
+    border-color: var(--accent);
+    background: rgba(240,192,96,0.08);
+  }
+  .length-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .length-sub { font-size: 12px; color: var(--muted); }
+  .length-duration {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 6px;
+  }
+
+  /* ─── GENERATE BUTTON ─── */
+  .generate-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 14px;
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0a0a0f;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    animation: fadeUp 0.6s 0.2s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+  .generate-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .generate-btn:hover::before { opacity: 1; }
+  .generate-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(240,192,96,0.3); }
+  .generate-btn:active { transform: translateY(0); }
+  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ─── STATUS BAR ─── */
+  .status-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeUp 0.4s ease both;
+    display: none;
+  }
+  .status-bar.visible { display: flex; }
+  .status-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  .status-bar.done .status-spinner { border-color: var(--success); border-top-color: var(--success); animation: none; }
+  .status-bar.error .status-spinner { border-color: var(--red); border-top-color: var(--red); animation: none; }
+
+  /* ─── RESULT PANEL ─── */
+  .result-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+    display: none;
+  }
+  .result-panel.visible { display: block; }
+
+  .result-header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .result-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .result-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Audio player */
+  .audio-section {
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .custom-player {
+    background: var(--bg);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .player-controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .play-btn {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+    color: #0a0a0f;
+    font-size: 16px;
+  }
+  .play-btn:hover { transform: scale(1.08); }
+  .player-info { flex: 1; }
+  .player-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .player-sub { font-size: 12px; color: var(--muted); }
+  .player-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s;
+  }
+
+  .audio-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .audio-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+  }
+  .audio-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Transcript */
+  .transcript-section { padding: 24px 28px; }
+  .transcript-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    margin-bottom: 0;
+  }
+  .transcript-toggle-label { font-size: 14px; font-weight: 500; }
+  .toggle-arrow { transition: transform 0.2s; color: var(--muted); }
+  .toggle-arrow.open { transform: rotate(180deg); }
+  .transcript-body {
+    margin-top: 16px;
+    display: none;
+  }
+  .transcript-body.open { display: block; }
+  .segment-block {
+    margin-bottom: 20px;
+    padding-left: 14px;
+    border-left: 2px solid var(--accent);
+  }
+  .segment-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .segment-text {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #c0c0d0;
+  }
+
+  /* ─── HISTORY ─── */
+  .history-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    margin-top: 24px;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .history-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  .history-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 24px 0;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .history-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .history-date-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .history-cats {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .history-length-badge {
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(240,192,96,0.3);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+  .history-play {
+    width: 28px; height: 28px;
+    background: rgba(240,192,96,0.12);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+
+  .sub-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sub-chip {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    user-select: none;
+  }
+  .sub-chip:hover { border-color: var(--accent); color: var(--text); }
+  .sub-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(240,192,96,0.08); }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(74,222,128,0.4); color: var(--success); }
+  .toast.error { border-color: rgba(248,113,113,0.4); color: var(--red); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 28px 0; }
+
+  /* ─── GREETING ─── */
+  .greeting-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    animation: fadeDown 0.5s ease both;
+  }
+  .greeting-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.2px;
+  }
+  .greeting-text strong {
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .greeting-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 540px) {
+    .categories-grid { grid-template-columns: 1fr 1fr; }
+    .length-row { grid-template-columns: 1fr 1fr; }
+    header { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="wrapper">
+
+  <!-- GREETING -->
+  <div class="greeting-bar">
+    <div class="greeting-text">👋 Hello, <strong>User</strong> — ready for your briefing?</div>
+    <div class="greeting-time" id="greetingTime"></div>
+  </div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-icon">🎙️</div>
+    <div class="logo-text">Brief<span>Wave</span></div>
+    <div class="live-badge"><span class="live-dot"></span> INDIA EDITION</div>
+  </header>
+
+  <!-- CONFIG PANEL -->
+  <div class="config-panel">
+
+    <!-- Categories -->
+    <div class="section-label">📌 Select Categories</div>
+    <div class="categories-grid" id="categoriesGrid">
+      <div class="cat-card active" data-cat="Top Story" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🗞️</span><span class="cat-name">Top Story</span>
+      </div>
+      <div class="cat-card active" data-cat="Tech Roundup" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">💻</span><span class="cat-name">Tech Roundup</span>
+      </div>
+      <div class="cat-card active" data-cat="Markets" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">📈</span><span class="cat-name">Markets</span>
+      </div>
+      <div class="cat-card active" data-cat="Sports Highlights" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🏏</span><span class="cat-name">Sports Highlights</span>
+      </div>
+      <div class="cat-card" data-cat="Politics" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🏛️</span><span class="cat-name">Politics</span>
+      </div>
+      <div class="cat-card" data-cat="Business & Economy" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">💼</span><span class="cat-name">Business & Economy</span>
+      </div>
+      <div class="cat-card" data-cat="International News" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🌍</span><span class="cat-name">International News</span>
+      </div>
+      <div class="cat-card" data-cat="Environment" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🌿</span><span class="cat-name">Environment</span>
+      </div>
+      <div class="cat-card" data-cat="Movies & Web Series" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🎬</span><span class="cat-name">Movies & Web Series</span>
+      </div>
+      <div class="cat-card" data-cat="Everything" onclick="toggleCat(this)">
+        <span class="cat-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0a0a0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="cat-emoji">🌐</span><span class="cat-name">Everything</span>
+      </div>
+    </div>
+
+    <!-- Sub-interests -->
+    <div id="subInterestPanel" style="margin-bottom:24px;display:none;">
+      <div class="section-label" style="margin-bottom:12px;">🎯 Refine Your Interests</div>
+
+      <div id="sub-Tech Roundup" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">💻 Tech — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="tech" data-val="AI & Machine Learning">AI & ML</span>
+          <span class="sub-chip active" data-group="tech" data-val="Gadgets & Devices">Gadgets</span>
+          <span class="sub-chip active" data-group="tech" data-val="Cybersecurity">Cybersecurity</span>
+          <span class="sub-chip active" data-group="tech" data-val="Space & ISRO">Space & ISRO</span>
+          <span class="sub-chip active" data-group="tech" data-val="Government Tech Policy">Gov Policy</span>
+          <span class="sub-chip active" data-group="tech" data-val="EVs & Clean Tech">EVs & CleanTech</span>
+        </div>
+      </div>
+
+      <div id="sub-Markets" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">📈 Markets — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="markets" data-val="Sensex & Nifty">Sensex/Nifty</span>
+          <span class="sub-chip active" data-group="markets" data-val="Stocks & Equities">Stocks</span>
+          <span class="sub-chip active" data-group="markets" data-val="Crypto">Crypto</span>
+          <span class="sub-chip active" data-group="markets" data-val="Rupee & Forex">Rupee/Forex</span>
+          <span class="sub-chip active" data-group="markets" data-val="Commodities & Gold">Gold</span>
+          <span class="sub-chip active" data-group="markets" data-val="IPO & Earnings">IPO/Earnings</span>
+        </div>
+      </div>
+
+      <div id="sub-Sports Highlights" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">🏏 Sports — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="sports" data-val="Cricket">Cricket</span>
+          <span class="sub-chip" data-group="sports" data-val="Football">Football</span>
+          <span class="sub-chip" data-group="sports" data-val="Kabaddi & Wrestling">Kabaddi</span>
+          <span class="sub-chip" data-group="sports" data-val="Badminton & Tennis">Badminton</span>
+          <span class="sub-chip" data-group="sports" data-val="Chess">Chess</span>
+          <span class="sub-chip" data-group="sports" data-val="Hockey">Hockey</span>
+          <span class="sub-chip" data-group="sports" data-val="Olympics & Athletics">Athletics</span>
+        </div>
+      </div>
+
+      <div id="sub-Business & Economy" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">💼 Business & Economy — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="business" data-val="Startup Funding & VC Investments">Startups & VC</span>
+          <span class="sub-chip active" data-group="business" data-val="Mergers & Acquisitions">Mergers & Acquisitions</span>
+          <span class="sub-chip active" data-group="business" data-val="RBI & Monetary Policy">RBI & Policy</span>
+          <span class="sub-chip active" data-group="business" data-val="GDP & Macro Economy">GDP & Macro</span>
+          <span class="sub-chip active" data-group="business" data-val="GST & Taxation">GST & Tax</span>
+          <span class="sub-chip active" data-group="business" data-val="Unicorns & Layoffs">Unicorns & Layoffs</span>
+          <span class="sub-chip active" data-group="business" data-val="Trade & Exports">Trade & Exports</span>
+        </div>
+      </div>
+
+      <div id="sub-International News" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">🌍 International — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="international" data-val="Asia & South Asia">Asia</span>
+          <span class="sub-chip active" data-group="international" data-val="USA & Americas">Americas</span>
+          <span class="sub-chip active" data-group="international" data-val="Europe">Europe</span>
+          <span class="sub-chip active" data-group="international" data-val="Middle East">Middle East</span>
+          <span class="sub-chip active" data-group="international" data-val="Africa">Africa</span>
+          <span class="sub-chip active" data-group="international" data-val="India Foreign Relations & Diplomacy">India Diplomacy</span>
+          <span class="sub-chip active" data-group="international" data-val="Global Conflicts & Geopolitics">Geopolitics</span>
+        </div>
+      </div>
+
+      <div id="sub-Environment" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">🌿 Environment — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="environment" data-val="AQI & Air Pollution">AQI & Pollution</span>
+          <span class="sub-chip active" data-group="environment" data-val="Climate Change & Weather Events">Climate & Weather</span>
+          <span class="sub-chip active" data-group="environment" data-val="Floods & Natural Disasters">Floods & Disasters</span>
+          <span class="sub-chip active" data-group="environment" data-val="Renewable Energy & Solar">Renewable Energy</span>
+          <span class="sub-chip active" data-group="environment" data-val="Wildlife & Forests">Wildlife</span>
+          <span class="sub-chip active" data-group="environment" data-val="Government Green Policy">Green Policy</span>
+        </div>
+      </div>
+
+      <div id="sub-Movies & Web Series" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">🎬 Entertainment — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="entertainment" data-val="Bollywood">Bollywood</span>
+          <span class="sub-chip active" data-group="entertainment" data-val="South Indian Cinema">South Cinema</span>
+          <span class="sub-chip active" data-group="entertainment" data-val="OTT Releases (Netflix, Prime, Hotstar)">OTT Releases</span>
+          <span class="sub-chip active" data-group="entertainment" data-val="Box Office & Collections">Box Office</span>
+          <span class="sub-chip active" data-group="entertainment" data-val="Celebrity & Industry News">Celebrity News</span>
+          <span class="sub-chip active" data-group="entertainment" data-val="Music & Album Releases">Music</span>
+        </div>
+      </div>
+
+      <div id="sub-Politics" class="sub-group" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">🏛️ Politics — focus on:</div>
+        <div class="sub-grid">
+          <span class="sub-chip active" data-group="politics" data-val="Parliament & Legislation">Parliament</span>
+          <span class="sub-chip active" data-group="politics" data-val="Elections & Voting">Elections</span>
+          <span class="sub-chip active" data-group="politics" data-val="State Politics">State Politics</span>
+          <span class="sub-chip active" data-group="politics" data-val="Government Schemes & Policy">Govt Schemes</span>
+          <span class="sub-chip active" data-group="politics" data-val="Party News & Controversies">Party News</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Length -->
+    <div class="section-label">⏱ Briefing Length</div>
+    <div class="length-row">
+      <div class="length-card active" data-length="short" onclick="selectLength(this)">
+        <div class="length-title">Quick Brief</div>
+        <div class="length-sub">Crisp, essential only</div>
+        <div class="length-duration">~5 min</div>
+      </div>
+      <div class="length-card" data-length="long" onclick="selectLength(this)">
+        <div class="length-title">Deep Dive</div>
+        <div class="length-sub">Full context & analysis</div>
+        <div class="length-duration">~10 min</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GENERATE BUTTON -->
+  <button class="generate-btn" id="generateBtn" onclick="generateBriefing()">
+    <span id="btnIcon">🎙️</span>
+    <span id="btnText">Generate Today's Briefing</span>
+  </button>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar" id="statusBar">
+    <div class="status-spinner" id="statusSpinner"></div>
+    <span id="statusText">Connecting to n8n...</span>
+  </div>
+
+  <!-- RESULT PANEL -->
+  <div class="result-panel" id="resultPanel">
+    <div class="result-header">
+      <div>
+        <div class="result-title" id="resultTitle">Today's Briefing</div>
+        <div class="result-date" id="resultDate"></div>
+      </div>
+      <div style="font-size:24px">🎧</div>
+    </div>
+
+    <div class="audio-section">
+      <div class="section-label">🔊 Audio Playback</div>
+      <div class="custom-player">
+        <div class="player-controls">
+          <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
+          <div class="player-info">
+            <div class="player-title" id="playerTitle">India Daily Briefing</div>
+            <div class="player-sub" id="playerSub">Loading audio...</div>
+          </div>
+          <div class="player-time" id="playerTime">0:00</div>
+        </div>
+        <div class="progress-bar" onclick="seekAudio(event)">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="audio-actions">
+          <a class="audio-btn" id="downloadBtn" href="#" download="briefing.mp3">⬇ Download MP3</a>
+          <button class="audio-btn" onclick="copyTranscript()">📋 Copy Transcript</button>
+        </div>
+      </div>
+      <audio id="audioPlayer" onended="onAudioEnd()" ontimeupdate="updateProgress()" onloadedmetadata="onMetadata()"></audio>
+    </div>
+
+    <div class="transcript-section">
+      <div class="transcript-toggle" onclick="toggleTranscript()">
+        <span class="transcript-toggle-label">📄 Read Transcript</span>
+        <span class="toggle-arrow" id="toggleArrow">▾</span>
+      </div>
+      <div class="transcript-body" id="transcriptBody"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="history-panel" id="historyPanel">
+    <div class="history-title">📅 Past Briefings</div>
+    <div id="historyList" class="history-empty">No briefings yet. Generate your first one above!</div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─────────────────────────────────────────────────────
+  // ⚙️  BACKEND CONFIG — only edit this section
+  //     Never expose this URL to end users; keep this
+  //     file server-rendered or behind access control.
+  // ─────────────────────────────────────────────────────
+  const N8N_WEBHOOK_URL = 'https://swapnilm.app.n8n.cloud/webhook-test/cb1769f4-1f60-4383-9ead-c25173c3a0fa';
+  // ─────────────────────────────────────────────────────
+
+  // ─── STATE ───
+  let selectedCategories = ['Top Story', 'Tech Roundup', 'Markets', 'Sports Highlights'];
+  let subInterests = {
+    tech: ['AI & Machine Learning','Gadgets & Devices','Cybersecurity','Space & ISRO','Government Tech Policy','EVs & Clean Tech'],
+    markets: ['Sensex & Nifty','Stocks & Equities','Crypto','Rupee & Forex','Commodities & Gold','IPO & Earnings'],
+    sports: ['Cricket'],
+    business: ['Startup Funding & VC Investments','Mergers & Acquisitions','RBI & Monetary Policy','GDP & Macro Economy','GST & Taxation','Unicorns & Layoffs','Trade & Exports'],
+    international: ['Asia & South Asia','USA & Americas','Europe','Middle East','Africa','India Foreign Relations & Diplomacy','Global Conflicts & Geopolitics'],
+    environment: ['AQI & Air Pollution','Climate Change & Weather Events','Floods & Natural Disasters','Renewable Energy & Solar','Wildlife & Forests','Government Green Policy'],
+    entertainment: ['Bollywood','South Indian Cinema','OTT Releases (Netflix, Prime, Hotstar)','Box Office & Collections','Celebrity & Industry News','Music & Album Releases'],
+    politics: ['Parliament & Legislation','Elections & Voting','State Politics','Government Schemes & Policy','Party News & Controversies']
+  };
+  let selectedLength = 'short';
+  let currentAudioUrl = '';
+  let currentTranscript = '';
+  let history = JSON.parse(localStorage.getItem('bw_history') || '[]');
+  const audio = document.getElementById('audioPlayer');
+
+  renderHistory();
+
+  // ─── WEBHOOK is now a server-side constant above ───
+
+  // ─── GREETING CLOCK ───
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('greetingTime').textContent =
+      now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  updateClock();
+  setInterval(updateClock, 60000);
+
+  // ─── CATEGORIES ───
+  function toggleCat(el) {
+    const cat = el.dataset.cat;
+    el.classList.toggle('active');
+    if (el.classList.contains('active')) {
+      selectedCategories.push(cat);
+    } else {
+      selectedCategories = selectedCategories.filter(c => c !== cat);
+    }
+    updateSubPanels();
+  }
+
+  function updateSubPanels() {
+    const panel = document.getElementById('subInterestPanel');
+    const subCats = ['Tech Roundup','Markets','Sports Highlights','Business & Economy','International News','Environment','Movies & Web Series','Politics'];
+    const hasSub = subCats.some(c => selectedCategories.includes(c));
+    panel.style.display = hasSub ? 'block' : 'none';
+    subCats.forEach(cat => {
+      const el = document.getElementById('sub-' + cat);
+      if (el) el.style.display = selectedCategories.includes(cat) ? 'block' : 'none';
+    });
+  }
+
+  function toggleSubChip(el) {
+    const group = el.dataset.group;
+    const val = el.dataset.val;
+    el.classList.toggle('active');
+    if (el.classList.contains('active')) {
+      if (!subInterests[group]) subInterests[group] = [];
+      subInterests[group].push(val);
+    } else {
+      subInterests[group] = (subInterests[group] || []).filter(v => v !== val);
+    }
+  }
+
+  // Add click listeners to sub-chips after DOM ready
+  document.querySelectorAll('.sub-chip').forEach(chip => {
+    chip.addEventListener('click', () => toggleSubChip(chip));
+  });
+
+  // ─── LENGTH ───
+  function selectLength(el) {
+    document.querySelectorAll('.length-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    selectedLength = el.dataset.length;
+  }
+
+  // ─── GENERATE ───
+  async function generateBriefing() {
+    if (selectedCategories.length === 0) return showToast('Select at least one category', 'error');
+
+    setLoading(true);
+    setStatus('Sending request...', false);
+
+    const payload = {
+      categories: selectedCategories,
+      subInterests: subInterests,
+      length: selectedLength,
+      date: new Date().toISOString().split('T')[0],
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      setStatus('AI Agent generating your script...', false);
+      const res = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+      const contentType = res.headers.get("content-type") || "";
+      let data = {};
+      if (contentType.includes("audio")) {
+        const blob = await res.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        data = { audio_url: audioUrl, transcript: "" };
+      } else {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      }
+      setStatus("Done! Your briefing is ready 🎙️", true);
+      handleResult(data, payload);
+
+
+
+
+
+
+
+    } catch (err) {
+      setStatus('Error: ' + err.message, false, true);
+      showToast('Failed to connect. Check server logs.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleResult(data, payload) {
+    // Flexible: support audio_url or audioUrl, transcript or script
+    const audioUrl = data.audio_url || data.audioUrl || data.url || '';
+    const transcript = data.transcript || data.script || data.text || '';
+
+    currentAudioUrl = audioUrl;
+    currentTranscript = transcript;
+
+    // Show result panel
+    const panel = document.getElementById('resultPanel');
+    panel.classList.add('visible');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Set date
+    document.getElementById('resultDate').textContent =
+      new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+    document.getElementById('resultTitle').textContent =
+      `${selectedLength === 'short' ? 'Quick Brief' : 'Deep Dive'} — ${selectedCategories.join(', ')}`;
+
+    // Audio
+    if (audioUrl) {
+      audio.src = audioUrl;
+      document.getElementById('downloadBtn').href = audioUrl;
+      document.getElementById('playerSub').textContent = audioUrl.split('/').pop() || 'briefing.mp3';
+    } else {
+      document.getElementById('playerSub').textContent = 'No audio URL returned from n8n';
+    }
+
+    // Transcript
+    renderTranscript(transcript);
+
+    // Save to history
+    const entry = {
+      id: Date.now(),
+      date: payload.date,
+      displayDate: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }),
+      categories: selectedCategories,
+      length: selectedLength,
+      audio_url: audioUrl,
+      transcript: transcript
+    };
+    history.unshift(entry);
+    localStorage.setItem('bw_history', JSON.stringify(history.slice(0, 30)));
+    renderHistory();
+
+    showToast('Briefing generated successfully!', 'success');
+  }
+
+  function renderTranscript(text) {
+    const body = document.getElementById('transcriptBody');
+    if (!text) {
+      body.innerHTML = '<p style="color:var(--muted);font-size:13px;">No transcript returned.</p>';
+      return;
+    }
+
+    // Try to parse [SEGMENT: X] markers, otherwise show as plain text
+    const segmentRegex = /\[SEGMENT:\s*([^\]]+)\]([\s\S]*?)(?=\[SEGMENT:|$)/gi;
+    let html = '';
+    let match;
+    let matched = false;
+
+    while ((match = segmentRegex.exec(text)) !== null) {
+      matched = true;
+      html += `
+        <div class="segment-block">
+          <div class="segment-title">${match[1].trim()}</div>
+          <div class="segment-text">${match[2].trim()}</div>
+        </div>`;
+    }
+
+    if (!matched) {
+      // Just show as paragraphs
+      html = text.split('\n\n').filter(Boolean).map(p =>
+        `<div class="segment-block"><div class="segment-text">${p}</div></div>`
+      ).join('');
+    }
+
+    body.innerHTML = html;
+  }
+
+  // ─── AUDIO CONTROLS ───
+  function togglePlay() {
+    if (!audio.src || audio.src === window.location.href) {
+      return showToast('No audio loaded', 'error');
+    }
+    if (audio.paused) {
+      audio.play();
+      document.getElementById('playBtn').textContent = '⏸';
+    } else {
+      audio.pause();
+      document.getElementById('playBtn').textContent = '▶';
+    }
+  }
+
+  function onAudioEnd() {
+    document.getElementById('playBtn').textContent = '▶';
+  }
+
+  function updateProgress() {
+    if (!audio.duration) return;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('playerTime').textContent = formatTime(audio.currentTime);
+  }
+
+  function onMetadata() {
+    document.getElementById('playerSub').textContent = formatTime(audio.duration) + ' — India Daily Briefing';
+  }
+
+  function seekAudio(e) {
+    if (!audio.duration) return;
+    const bar = e.currentTarget;
+    const ratio = e.offsetX / bar.offsetWidth;
+    audio.currentTime = ratio * audio.duration;
+  }
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  // ─── TRANSCRIPT TOGGLE ───
+  function toggleTranscript() {
+    const body = document.getElementById('transcriptBody');
+    const arrow = document.getElementById('toggleArrow');
+    body.classList.toggle('open');
+    arrow.classList.toggle('open');
+  }
+
+  function copyTranscript() {
+    if (!currentTranscript) return showToast('No transcript to copy', 'error');
+    navigator.clipboard.writeText(currentTranscript).then(() => showToast('Transcript copied!', 'success'));
+  }
+
+  // ─── HISTORY ───
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    if (history.length === 0) {
+      list.className = 'history-empty';
+      list.textContent = 'No briefings yet. Generate your first one above!';
+      return;
+    }
+    list.className = 'history-list';
+    list.innerHTML = history.map(item => `
+      <div class="history-item" onclick="loadFromHistory(${item.id})">
+        <div class="history-date-badge">${item.displayDate}</div>
+        <div class="history-cats">${item.categories.join(' · ')}</div>
+        <div class="history-length-badge">${item.length === 'short' ? '5 min' : '10 min'}</div>
+        <div class="history-play">▶</div>
+      </div>
+    `).join('');
+  }
+
+  function loadFromHistory(id) {
+    const item = history.find(h => h.id === id);
+    if (!item) return;
+
+    currentAudioUrl = item.audio_url;
+    currentTranscript = item.transcript;
+
+    const panel = document.getElementById('resultPanel');
+    panel.classList.add('visible');
+    panel.scrollIntoView({ behavior: 'smooth' });
+
+    document.getElementById('resultDate').textContent = item.displayDate;
+    document.getElementById('resultTitle').textContent =
+      `${item.length === 'short' ? 'Quick Brief' : 'Deep Dive'} — ${item.categories.join(', ')}`;
+
+    if (item.audio_url) {
+      audio.src = item.audio_url;
+      document.getElementById('downloadBtn').href = item.audio_url;
+      document.getElementById('playerSub').textContent = 'From history';
+    }
+
+    renderTranscript(item.transcript);
+    setStatus('Loaded from history', true);
+    showToast('Briefing loaded from history', 'success');
+  }
+
+  // ─── UI HELPERS ───
+  function setLoading(on) {
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = on;
+    document.getElementById('btnIcon').textContent = on ? '⏳' : '🎙️';
+    document.getElementById('btnText').textContent = on ? 'Generating...' : "Generate Today's Briefing";
+    document.getElementById('statusBar').classList.toggle('visible', on || true);
+  }
+
+  function setStatus(msg, done, error) {
+    const bar = document.getElementById('statusBar');
+    bar.classList.add('visible');
+    bar.classList.toggle('done', !!done);
+    bar.classList.toggle('error', !!error);
+    document.getElementById('statusText').textContent = msg;
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    const icons = { success: '✓', error: '✕', '': 'ℹ' };
+    t.textContent = (icons[type] || '') + ' ' + msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
