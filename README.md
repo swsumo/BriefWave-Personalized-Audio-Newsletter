@@ -21,7 +21,7 @@ Built using **n8n**, **Google Gemini 2.5 Flash**, **GNews API**, **ElevenLabs**,
 
 ## 📸 Frontend Preview
 
-<img width="737" height="652" alt="image" src="https://github.com/user-attachments/assets/b41251f3-506a-45eb-aec2-cfb4bb38509b" />
+<img width="827" height="654" alt="image" src="https://github.com/user-attachments/assets/75f3778d-62c2-4713-b378-4a68a0f884d3" />
 <img width="817" height="440" alt="image" src="https://github.com/user-attachments/assets/42ef522b-1a12-440a-acf6-0bd744065095" />
 <img width="737" height="652" alt="image" src="https://github.com/user-attachments/assets/c60d063d-e1d4-4780-80f7-fa0a4706ad9e" />
 
